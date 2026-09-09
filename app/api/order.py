@@ -4,7 +4,7 @@ from app.config.database import get_db
 from app.schema.order import OrderItem, OrderResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix='/order', tags=[
+router = APIRouter(prefix='/orders', tags=[
     'Order'
 ])
 

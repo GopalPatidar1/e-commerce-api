@@ -6,13 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from app.schema.order import OrderDateFilter, OrderDateFilter
 from datetime import datetime, timedelta
+from app.repositories.product import get_product_by_id
 
 async def add_order_item(db: AsyncSession, order_data, user_id: int):
     try:
+      getAmount = await get_product_by_id(db, order_data.product_id)
+      
       orderData = Order(
           product_id=order_data.product_id,
           quantity=order_data.quantity,
           user_id= user_id,
+          amount=getAmount.amount
       )
       
       await order.add_order(db, orderData)
@@ -23,7 +27,7 @@ async def add_order_item(db: AsyncSession, order_data, user_id: int):
       return {
           "id": orderData.id,
           "amount": orderData.amount,
-          "description": orderData.description,
+          "description": orderData.quantity,
       }
     except Exception as e:
         await db.rollback()
@@ -54,6 +58,8 @@ async def delete_order_item(db: AsyncSession, user_id: int, id: int):
 
    if result.rowcount == 0:
       raise CustomException(404,"Order not found") 
+
+   await db.commit()
    
    return {
        'success': True

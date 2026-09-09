@@ -1,3 +1,3 @@
-from app.repository import user
+from app.repositories import user
 def getUserProfileById(db, id):
    return user.getUserById(db, id)

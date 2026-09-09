@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from sqlalchemy import String, DateTime, func, Integer
+from sqlalchemy import String, DateTime, func, Integer, ForeignKey
 from sqlalchemy.orm import DeclarativeBase ,Mapped, mapped_column, relationship
 from app.config.database import Base
 
@@ -11,6 +11,11 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(String(255), nullable=False)
     amount: Mapped[float] = mapped_column(Integer, nullable=False)
+    img_path: Mapped[str] = mapped_column(String(255), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+            ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"),
+            nullable=False,
+        )
 
     carts: Mapped[list["Cart"]] = relationship(back_populates="product")
 

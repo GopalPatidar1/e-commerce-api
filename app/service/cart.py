@@ -11,7 +11,6 @@ async def add_cart_item(db: AsyncSession, cart_data, user_id: int):
     try:
       cartData = Cart(
           product_id=cart_data.product_id,
-          quantity=cart_data.quantity,
           user_id= user_id,
       )
       
@@ -50,7 +49,9 @@ async def delete_cart_item(db: AsyncSession, user_id: int, id: int):
 
    if result.rowcount == 0:
       raise CustomException(404,"Cart not found") 
-   
+
+   await db.commit()
+
    return {
        'success': True
    }

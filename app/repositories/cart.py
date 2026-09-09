@@ -30,14 +30,10 @@ async def get_cart_list(db: AsyncSession, user_id: str, next_cursor: int | None,
     return result.all()
 
 async def delete_cart(id: int, user_id: int, db: AsyncSession):
-    result = await db.execute(delete(Cart).where(
+    return await db.execute(delete(Cart).where(
         Cart.user_id == user_id,
         Cart.id == id
     ))
-
-    await db.commit()
-
-    return result
 
 async def update_cart(db: AsyncSession, id:int, user_id: int, data):
      result = await db.execute(

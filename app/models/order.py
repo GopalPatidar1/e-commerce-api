@@ -2,7 +2,7 @@ from typing import Optional
 from enum import Enum
 from datetime import datetime
 from sqlalchemy import String, DateTime, func, Integer, ForeignKey, Float, Enum as SQLEnum
-from sqlalchemy.orm import DeclarativeBase ,Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.config.database import Base
 
 class Status(str, Enum):

@@ -17,9 +17,8 @@ class OrderDateFilter(str, Enum):
     CUSTOM = "custom"
 
 class OrderItem(BaseModel):
-    quantity: int = Field(ge=1)
+    quantity: int = Field(ge=1, default=1)
     product_id: int
-    category_id: int
 
 class UpdateOrderItem(BaseModel):
     amount: int | None = Field(default=None, ge=1)
@@ -36,11 +35,12 @@ class ProductInfo(BaseModel):
     name: str
     description: str
     amount: int
+    img_path: str
 
 class OrderResponseItem(BaseModel):
     id: int
     amount: int
-    quantity: str
+    quantity: int
     status: Status
     product: ProductInfo
     user: UserInfo

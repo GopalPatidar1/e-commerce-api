@@ -30,14 +30,10 @@ async def get_order_list(db: AsyncSession, user_id: str, next_cursor: int | None
     return result.all()
 
 async def delete_order(id: int, user_id: int, db: AsyncSession):
-    result = await db.execute(delete(Order).where(
+    return await db.execute(delete(Order).where(
         Order.user_id == user_id,
         Order.id == id
     ))
-
-    await db.commit()
-
-    return result
 
 async def update_order(db: AsyncSession, id:int, user_id: int, data):
      result = await db.execute(

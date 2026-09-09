@@ -1,10 +1,10 @@
 from app.models.users import User
-from app.repository import user as userRepo
+from app.repositories import user as userRepo
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
 from datetime import datetime, timedelta, timezone
 from app.config.secretes import secretes
-from app.core.customException import CustomException
+from app.core.custom_exception import CustomException
 import jwt
 
 async def registerUser(request, db):
@@ -30,7 +30,7 @@ async def registerUser(request, db):
         await db.rollback()
         raise CustomException(status.HTTP_422_UNPROCESSABLE_CONTENT, 'Something went wrong')
 
-def createAccessToken(user_id: int) -> str:
+def createAccessToken(user_id: int):
     expire = datetime.now(timezone.utc) + timedelta(minutes=secretes.ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = { "user_id": str(user_id), "exp": expire }
 

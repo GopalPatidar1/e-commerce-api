@@ -15,6 +15,7 @@ class ProductInfo(BaseModel):
     name: str
     description: str
     amount: int
+    img_path: str
 
 class CartResponseItem(BaseModel):
     id: int

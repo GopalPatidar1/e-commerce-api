@@ -18,7 +18,7 @@ class Base(DeclarativeBase):
 engine = create_async_engine(
     secretes.DB_URL,
     pool_pre_ping=True,
-    echo=True
+    # echo=True
 )
 
 SessionLocal = async_sessionmaker(

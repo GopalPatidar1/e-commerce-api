@@ -1,16 +1,44 @@
 from app.repositories import product 
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.custom_exception import CustomException
-from fastapi import status
+from fastapi import status, UploadFile
 from app.models.product import Product
 from app.schema.product import CreateProduct
+from pathlib import Path
+from uuid import uuid4
 
-async def create_product(data: CreateProduct, db: AsyncSession):
+
+PRODUCT_IMAGE_DIR = Path("product_image")
+
+PRODUCT_IMAGE_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+async def save_product_image(image: UploadFile) -> str:
+    extension = Path(image.filename or "").suffix.lower()
+
+    filename = f"{uuid4().hex}{extension}"
+
+    file_path = PRODUCT_IMAGE_DIR / filename
+
+    with file_path.open("wb") as file:
+        while chunk := await image.read(1024 * 1024):
+            file.write(chunk)
+
+    return f"/uploads/products/{filename}"
+
+async def create_product(image: UploadFile, data: CreateProduct, db: AsyncSession, user_id: str):
     try:
+
+     img_path = await save_product_image(image)
+     
      product_data = Product(
        name=data.name,
        description=data.description,
-       amount=data.amount
+       amount=data.amount,
+       img_path=img_path,
+       user_id=user_id
      )
      
 
@@ -53,6 +81,7 @@ async def delete_product(db: AsyncSession, id: int):
 
      if result.rowcount == 0:
         raise CustomException(status.HTTP_404_NOT_FOUND, "Product not found")
+
      await db.commit()
 
      return {

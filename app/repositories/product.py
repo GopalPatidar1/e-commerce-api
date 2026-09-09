@@ -10,6 +10,9 @@ async def get_product(db: AsyncSession):
    data = await db.scalars(select(Product))
    return data.all()
 
+async def get_product_by_id(db: AsyncSession, id):
+   return await db.scalar(select(Product).where(Product.id == id))
+
 async def update_product(db: AsyncSession, id: int,  data):
    result = await db.execute(
            update(Product)

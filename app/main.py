@@ -6,8 +6,12 @@ from jwt.exceptions import (
     InvalidTokenError,
     DecodeError,
 )
-# from app.api import auth, user, category, expense
-# from app.core.customException import CustomException
+from app.api import auth, user, cart, product, order
+from app.core.custom_exception import CustomException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+
 from app.config.secretes import secretes
 
 JWT_SECRET_KEY = secretes.JWT_SECRET_KEY
@@ -15,8 +19,34 @@ JWT_ALGORITHM = secretes.JWT_ALGORITHM
 
 app = FastAPI()
 
-@app.middleware("http")
+PRODUCT_FOLDER = Path("product_image")
+# Makes files accessible through:
+# http://localhost:8000/uploads/products/filename.jpg
+app.mount(
+    "/uploads/products",
+    StaticFiles(directory=PRODUCT_FOLDER),
+    name="product-images",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        '*'
+    ],
+    allow_credentials=True,
+    allow_methods=[
+        '*'
+    ],
+    allow_headers=[
+        '*'
+    ],
+)
+
+@app.middleware("https")
 async def validate_auth(request, call_next):
+    if request.method == "OPTIONS": 
+        return await call_next(request)
+
     publicRoutes = [
         '/docs',
         '/openapi.json',
@@ -27,21 +57,12 @@ async def validate_auth(request, call_next):
         '/logout'
     ]
     if request.url.path not in publicRoutes:
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return JSONResponse(
-                status_code=401,
-                content={
-                    'detail': 'Missing or invalid Authorization header'
-                },
-            )
-        encoded_jwt = auth_header.split(" ", 1)[1]
-
+        encoded_jwt = request.cookies.get("access_token")
         if not encoded_jwt:
             return JSONResponse(
                 status_code=401,
                 content={
-                    'detail': 'Missing token'
+                    'detail': 'Missing or invalid Authorization header'
                 },
             )
 
@@ -85,10 +106,12 @@ async def validate_auth(request, call_next):
     return response
 
 
-# app.include_router(auth.router)
-# app.include_router(user.router)
-# app.include_router(category.router)
-# app.include_router(expense.router)
+app.include_router(auth.router)
+app.include_router(user.router)
+app.include_router(cart.router)
+app.include_router(product.router)
+app.include_router(order.router)
+
 
 @app.get("/health")
 async def read_root():
@@ -96,11 +119,11 @@ async def read_root():
         'Hello': 'World'
     }
 
-# @app.exception_handler(CustomException)
-# async def global_exception_handler(request: Request, exc: CustomException):
-#     return JSONResponse(
-#         status_code=exc.status_code,
-#         content={
-#             'error': exc.message
-#         }
-#     )
+@app.exception_handler(CustomException)
+async def global_exception_handler(request: Request, exc: CustomException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            'error': exc.message
+        }
+    )

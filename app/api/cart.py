@@ -4,7 +4,7 @@ from app.config.database import get_db
 from app.schema.cart import CartItem, CartResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix='/cart', tags=[
+router = APIRouter(prefix='/carts', tags=[
     'Cart'
 ])
 
