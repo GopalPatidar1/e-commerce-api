@@ -1,5 +1,6 @@
 from app.repositories import order
 from app.models.order import Order
+from app.models.transactions import Transaction
 from fastapi.responses import JSONResponse
 from app.core.custom_exception import CustomException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,8 @@ import asyncio
 from app.schema.order import OrderDateFilter, OrderDateFilter
 from datetime import datetime, timedelta
 from app.repositories.product import get_product_by_id
+from app.config.razorpay import razorpay
+from app.repositories.user import getUserById
 
 async def add_order_item(db: AsyncSession, order_data, user_id: int):
     try:
@@ -18,8 +21,33 @@ async def add_order_item(db: AsyncSession, order_data, user_id: int):
           user_id= user_id,
           amount=getAmount.amount
       )
+
       
       await order.add_order(db, orderData)
+
+      await db.flush()
+
+      total_amount = getAmount.amount * order_data.quantity
+
+      payment_link = razorpay.generate_payment_link(
+            amount=total_amount,
+            description=f"Payment for Order #{orderData.id}",
+            reference_id=f"ORDER_{orderData.id}",
+            user_id=user_id,
+        )
+      print("🚀 ~ add_order_item ~ payment_link:", payment_link)
+
+      transaction = Transaction(
+            user_id=user_id,
+            order_id=orderData.id,
+            payment_link_id=payment_link["id"],
+            amount=total_amount,
+            currency="INR",
+            status="pending",
+          
+        )
+
+      db.add(transaction)
 
       await db.commit()
       await db.refresh(orderData)
@@ -28,8 +56,11 @@ async def add_order_item(db: AsyncSession, order_data, user_id: int):
           "id": orderData.id,
           "amount": orderData.amount,
           "description": orderData.quantity,
+          "payment_url": payment_link["short_url"],
+          "payment_link_id": payment_link["id"]
       }
     except Exception as e:
+        print("🚀 ~ add_order_item ~ e:", e)
         await db.rollback()
         raise CustomException(500, "Something went wrong") 
 

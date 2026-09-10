@@ -7,6 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def add_order(db:AsyncSession, order):
     db.add(order)
 
+async def getOrderById(db: AsyncSession, id: int):
+     return await db.scalar(
+          select(Order).where(Order.id == id)
+     )
+
 async def get_order_list(db: AsyncSession, user_id: str, next_cursor: int | None, limit:int, start_date,  end_date):
     filter = [Order.user_id == user_id]
 
@@ -36,6 +41,7 @@ async def delete_order(id: int, user_id: int, db: AsyncSession):
     ))
 
 async def update_order(db: AsyncSession, id:int, user_id: int, data):
+     print("🚀 ~ update_order ~ id:int, user_id: int, data:", id, user_id, data)
      result = await db.execute(
         update(Order)
         .where(

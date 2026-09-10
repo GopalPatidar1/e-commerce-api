@@ -32,6 +32,7 @@ async def get_db():
     try:
       async with SessionLocal() as db:
         yield db
-    except SQLAlchemyError:
+    except SQLAlchemyError as e:
+        print("🚀 ~ get_db ~ e:", e)
         raise CustomException(status.HTTP_503_SERVICE_UNAVAILABLE, "Database service is temporarily unavailable")
         

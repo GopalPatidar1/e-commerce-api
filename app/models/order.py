@@ -1,9 +1,10 @@
 from typing import Optional
 from enum import Enum
 from datetime import datetime
-from sqlalchemy import String, DateTime, func, Integer, ForeignKey, Float, Enum as SQLEnum
+from sqlalchemy import String, DateTime, func, Integer, ForeignKey, Float, Enum as SQLEnum, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.config.database import Base
+import uuid
 
 class Status(str, Enum):
     pending = "pending" 
@@ -30,12 +31,18 @@ class Order(Base):
             ForeignKey("products.id", ondelete="CASCADE", onupdate="CASCADE"),
             nullable=False,
         )
+    
+    # transaction_id: Mapped[uuid.UUID] = mapped_column(
+    #             ForeignKey("transactions.id", ondelete="CASCADE", onupdate="CASCADE"),
+    #             nullable=True,
+    #         )
 
     status: Mapped[Status] = mapped_column(SQLEnum(Status), server_default=Status.pending, nullable=False)
     
     user: Mapped["User"] = relationship(back_populates="orders")
-    
     product: Mapped["Product"] = relationship(back_populates="orders")
+    transactions: Mapped["Transaction"] = relationship(back_populates="order")
+
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False,)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,)

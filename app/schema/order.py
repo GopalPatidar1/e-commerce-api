@@ -22,9 +22,11 @@ class OrderItem(BaseModel):
 
 class UpdateOrderItem(BaseModel):
     amount: int | None = Field(default=None, ge=1)
-    # status: Status | None = None
     description: str | None = Field(min_length=5, max_length=255)
     name: int | None = None
+
+class UpdateOrderItemNoneRequiredField(BaseModel):
+    status: Status | None = None
 
 class UserInfo(BaseModel):
     firstname: str
