@@ -19,6 +19,7 @@ class OrderDateFilter(str, Enum):
 class OrderItem(BaseModel):
     quantity: int = Field(ge=1, default=1)
     product_id: int
+    idempotency_key: str
 
 class UpdateOrderItem(BaseModel):
     amount: int | None = Field(default=None, ge=1)

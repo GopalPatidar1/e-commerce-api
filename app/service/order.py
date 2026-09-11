@@ -1,5 +1,6 @@
-from app.repositories import order
+from app.repositories import order, idempotency
 from app.models.order import Order
+from app.models.idempotency_keys import IdempotencyKey
 from app.models.transactions import Transaction
 from fastapi.responses import JSONResponse
 from app.core.custom_exception import CustomException
@@ -10,9 +11,48 @@ from datetime import datetime, timedelta
 from app.repositories.product import get_product_by_id
 from app.config.razorpay import razorpay
 from app.repositories.user import getUserById
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException, status
+
+async def add_idempotency_record(idempotency_record, user_id, idempotency_key, db: AsyncSession):
+   
+    await idempotency.add_idempotency(db, idempotency_record)
+    try:
+        await db.flush()
+        return True, None
+    except IntegrityError:
+        await db.rollback()
+
+        result = await idempotency.get_idempotency_by_id(db, idempotency_key, user_id)
+
+        if result is not None:
+            if result.response_body is not None:
+                    return False, result.response_body
+    
+            if result.idempotency_key != idempotency_key:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Idempotency-Key was already used "
+                        "with a different request."
+                    ),
+                )
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Request is already being processed.",
+        )
 
 async def add_order_item(db: AsyncSession, order_data, user_id: int):
+
+    idempotency_key = order_data.idempotency_key
     try:
+      idempotency_record = IdempotencyKey(user_id=user_id, idempotency_key=idempotency_key, )
+      cont, data  = await add_idempotency_record(idempotency_record, user_id, idempotency_key, db)
+      
+      if cont is False:
+         return data
+
       getAmount = await get_product_by_id(db, order_data.product_id)
       
       orderData = Order(
@@ -35,7 +75,6 @@ async def add_order_item(db: AsyncSession, order_data, user_id: int):
             reference_id=f"ORDER_{orderData.id}",
             user_id=user_id,
         )
-      print("🚀 ~ add_order_item ~ payment_link:", payment_link)
 
       transaction = Transaction(
             user_id=user_id,
@@ -49,20 +88,24 @@ async def add_order_item(db: AsyncSession, order_data, user_id: int):
 
       db.add(transaction)
 
-      await db.commit()
-      await db.refresh(orderData)
-
-      return {
+      response_body =  {
           "id": orderData.id,
           "amount": orderData.amount,
           "description": orderData.quantity,
           "payment_url": payment_link["short_url"],
           "payment_link_id": payment_link["id"]
       }
+  
+      idempotency_record.response_status = 201
+      idempotency_record.response_body = response_body
+      idempotency_record.resource_id = str(orderData.id)
+
+      await db.commit()
+ 
+      return response_body
     except Exception as e:
-        print("🚀 ~ add_order_item ~ e:", e)
         await db.rollback()
-        raise CustomException(500, "Something went wrong") 
+        raise CustomException(500, str(e)) 
 
 async def get_order_list(user_id: int, db: AsyncSession, limit: int, next_cursor: int|None, date_filter: OrderDateFilter | None):
    now = datetime.now()
