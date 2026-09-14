@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 import jwt
 from jwt.exceptions import (
@@ -18,11 +18,53 @@ from app.service.razorpay import process_payment
 import json
 import hmac
 import hashlib
+import time
+from app.config.logging_config import setup_logging
+from app.config.tracing import setup_tracing
+import structlog
+from opentelemetry.instrumentation.fastapi import (
+    FastAPIInstrumentor,
+)
+
+setup_tracing()
+setup_logging()
+
+logger = structlog.get_logger()
+
+from prometheus_client import Counter, Histogram, generate_latest
+
+REQUEST_COUNT = Counter(
+    "api_requests_total",
+    "Total API requests",
+    [
+        'method',
+        'endpoint',
+        'status_code'
+    ]
+)
+
+REQUEST_LATENCY = Histogram(
+    "api_request_duration_seconds",
+    "API request duration",
+    [
+        'method',
+        'endpoint'
+    ],
+        buckets=[
+            0.01,
+            0.05,
+            0.1,
+            0.5,
+            1.0,
+            5.0
+        ],
+)
 
 JWT_SECRET_KEY = secretes.JWT_SECRET_KEY
 JWT_ALGORITHM = secretes.JWT_ALGORITHM
 
 app = FastAPI()
+FastAPIInstrumentor.instrument_app(app)
 
 PRODUCT_FOLDER = Path("product_image")
 # Makes files accessible through:
@@ -47,12 +89,15 @@ app.add_middleware(
     ],
 )
 
-@app.middleware("https")
+@app.middleware("http")
 async def validate_auth(request, call_next):
     if request.method == "OPTIONS": 
         return await call_next(request)
 
+    start_time = time.perf_counter()
+
     publicRoutes = [
+        '/metrics',
         '/razorpay/webhook',
         '/docs',
         '/openapi.json',
@@ -62,6 +107,7 @@ async def validate_auth(request, call_next):
         '/auth/register',
         '/logout'
     ]
+
     if request.url.path not in publicRoutes:
         encoded_jwt = request.cookies.get("access_token")
         if not encoded_jwt:
@@ -107,9 +153,28 @@ async def validate_auth(request, call_next):
                     'detail': 'Invalid token'
                 },
             )
+    try:
+       response = await call_next(request)
+       return response
+    except Exception:
+        raise
+    finally:
+     # Runs AFTER the endpoint, even if an exception occurs
+       duration = time.perf_counter() - start_time 
+       route = request.scope.get("route")
 
-    response = await call_next(request)
-    return response
+    #  endpoint = request.url.path 
+       endpoint = route.path if route else request.url.path
+       REQUEST_COUNT.labels(
+           method=request.method,
+           endpoint=endpoint,
+           status_code=response.status_code if "response" in locals() else 500
+       ).inc() 
+  
+       REQUEST_LATENCY.labels(
+           method=request.method,
+           endpoint=endpoint
+       ).observe(duration)
 
 @app.post('/razorpay/webhook')
 async def webHook(request: Request, db: AsyncSession = Depends(get_db)):
@@ -183,9 +248,21 @@ async def webHook(request: Request, db: AsyncSession = Depends(get_db)):
         
 @app.get("/health")
 async def read_root():
+    logger.info(
+        "health_check",
+        endpoint="/health",
+        method="GET",
+    )
     return {
         'Hello': 'World'
     }
+
+@app.get("/metrics")
+def metrics():
+    return Response(
+        content=generate_latest(),
+        media_type="text/plain"
+    )
 
 app.include_router(auth.router)
 app.include_router(user.router)
